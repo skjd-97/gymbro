@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GymBro - Offline Workout Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;600&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gymDark: '#121212',
+                        gymCard: '#1e1e1e',
+                        gymAccent: '#00ff88', /* Neon Green */
+                        gymAccentHover: '#00cc6a',
+                        gymText: '#e0e0e0',
+                        gymMuted: '#888888'
+                    },
+                    fontFamily: {
+                        heading: ['Teko', 'sans-serif'],
+                        body: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: contain; 
+        }
+        h1, h2, h3, h4, h5, .font-heading {
+            font-family: 'Teko', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff88;
+        }
+        .nav-item.active {
+            color: #00ff88;
+            border-bottom: 2px solid #00ff88;
+        }
+        .slide-up {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        /* Custom Input styling */
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gymDark text-gymText h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gymCard border-b border-gray-800 p-4 sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-dumbbell text-gymAccent text-2xl"></i>
+                <h1 class="text-3xl font-heading text-white m-0 leading-none mt-1">GymBro</h1>
+            </div>
+            <button id="downloadDataBtn" class="text-gymMuted hover:text-gymAccent transition-colors" title="Export Data">
+                <i class="fas fa-download"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-4 pb-24">
+        <div class="max-w-md mx-auto w-full relative">
+
+            <!-- VIEW: DASHBOARD -->
+            <div id="view-dashboard" class="view-section slide-up">
+                <div class="bg-gymCard rounded-xl p-5 mb-6 border border-gray-800 shadow-lg">
+                    <h2 class="text-2xl font-heading text-white mb-2">Welcome Back, Bro!</h2>
+                    <p class="text-gymMuted text-sm mb-4">Ready to crush today's goals?</p>
+                    <button onclick="switchView('exercises')" class="w-full bg-gymAccent hover:bg-gymAccentHover text-black font-bold py-3 rounded-lg uppercase tracking-wide transition-colors flex justify-center items-center gap-2">
+                        <i class="fas fa-play"></i> Start Workout
+                    </button>
+                </div>
+                
+                <!-- Added: Install/Download Instructions -->
+                <div class="bg-[#1a1a1a] rounded-xl p-4 border border-gymAccent mb-6 flex items-start gap-3">
+                    <i class="fas fa-mobile-alt text-gymAccent text-xl mt-1"></i>
+                    <div>
+                        <h4 class="text-white font-bold text-sm mb-1">Make it an App!</h4>
+                        <p class="text-xs text-gray-400 mb-3">Install this offline tracker on your phone.</p>
+                        <div class="flex gap-2">
+                            <button onclick="showInstallGuide()" class="text-xs bg-gray-800 text-white px-3 py-1.5 rounded hover:bg-gray-700 transition">How to Install</button>
+                            <button onclick="downloadAppHtml()" class="text-xs bg-gymAccent text-black px-3 py-1.5 rounded hover:bg-gymAccentHover transition font-bold"><i class="fas fa-file-download mr-1"></i> Download File</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-heading text-white border-b border-gray-800 pb-2 mb-4">Recent Activity</h3>
+                <div id="recentActivityList" class="space-y-3">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- VIEW: EXERCISE LIBRARY -->
+            <div id="view-exercises" class="view-section hidden slide-up">
+                <h2 class="text-2xl font-heading text-white border-b border-gray-800 pb-2 mb-4">Select Muscle Group</h2>
+                
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <button onclick="loadCategory('Chest')" class="bg-gymCard hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-colors">
+                        <i class="fas fa-child text-gymAccent text-2xl"></i>
+                        <span class="font-heading text-lg">Chest</span>
+                    </button>
+                    <button onclick="loadCategory('Back')" class="bg-gymCard hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-colors">
+                        <i class="fas fa-male text-gymAccent text-2xl"></i>
+                        <span class="font-heading text-lg">Back</span>
+                    </button>
+                    <button onclick="loadCategory('Shoulders')" class="bg-gymCard hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-colors">
+                        <i class="fas fa-walking text-gymAccent text-2xl"></i>
+                        <span class="font-heading text-lg">Shoulders</span>
+                    </button>
+                    <button onclick="loadCategory('Legs')" class="bg-gymCard hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-colors">
+                        <i class="fas fa-running text-gymAccent text-2xl"></i>
+                        <span class="font-heading text-lg">Legs</span>
+                    </button>
+                    <button onclick="loadCategory('Arms')" class="bg-gymCard hover:bg-gray-800 border border-gray-800 p-4 rounded-xl flex flex-col items-center gap-2 transition-colors col-span-2">
+                        <i class="fas fa-hand-rock text-gymAccent text-2xl"></i>
+                        <span class="font-heading text-lg">Arms</span>
+                    </button>
+                </div>
+
+                <div id="exerciseListContainer" class="hidden">
+                    <div class="flex items-center gap-3 mb-4 border-b border-gray-800 pb-2">
+                        <button onclick="hideExerciseList()" class="text-gymMuted hover:text-white"><i class="fas fa-arrow-left"></i></button>
+                        <h2 id="selectedCategoryTitle" class="text-2xl font-heading text-white m-0"></h2>
+                    </div>
+                    <div id="exerciseList" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: ACTIVE WORKOUT -->
+            <div id="view-workout" class="view-section hidden slide-up">
+                <div class="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
+                    <div class="flex items-center gap-3">
+                        <button onclick="switchView('exercises')" class="text-gymMuted hover:text-white"><i class="fas fa-arrow-left"></i></button>
+                        <h2 id="activeExerciseTitle" class="text-2xl font-heading text-white m-0">Exercise</h2>
+                    </div>
+                    <span id="workoutDate" class="text-xs text-gymMuted bg-gray-800 px-2 py-1 rounded">Today</span>
+                </div>
+
+                <div class="bg-gymCard rounded-xl p-4 border border-gray-800 mb-6">
+                    <div class="grid grid-cols-12 gap-2 text-center text-xs font-bold text-gymMuted uppercase tracking-wider mb-2">
+                        <div class="col-span-2">Set</div>
+                        <div class="col-span-4">KG/LBS</div>
+                        <div class="col-span-4">Reps</div>
+                        <div class="col-span-2"><i class="fas fa-check"></i></div>
+                    </div>
+                    
+                    <div id="setsContainer" class="space-y-2">
+                        <!-- Sets will be added here -->
+                    </div>
+
+                    <button onclick="addSetRow()" class="mt-4 w-full bg-transparent hover:bg-gray-800 text-gymAccent border border-gymAccent font-bold py-2 rounded-lg text-sm transition-colors">
+                        + Add Set
+                    </button>
+                </div>
+                
+                <button onclick="finishExercise()" class="w-full bg-gymAccent hover:bg-gymAccentHover text-black font-bold py-3 rounded-lg uppercase tracking-wide transition-colors">
+                    Finish & Save Exercise
+                </button>
+            </div>
+
+            <!-- VIEW: HISTORY -->
+            <div id="view-history" class="view-section hidden slide-up">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-2 mb-4">
+                    <h2 class="text-2xl font-heading text-white m-0">Workout History</h2>
+                    <button onclick="clearHistoryConfirm()" class="text-red-500 text-sm hover:text-red-400"><i class="fas fa-trash-alt"></i> Clear All</button>
+                </div>
+                
+                <div id="historyList" class="space-y-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bg-gymCard border-t border-gray-800 fixed bottom-0 w-full z-50">
+        <div class="max-w-md mx-auto flex justify-around">
+            <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active flex-1 py-3 flex flex-col items-center gap-1 transition-colors">
+                <i class="fas fa-home text-lg"></i>
+                <span class="text-[10px] uppercase font-bold tracking-wider">Home</span>
+            </button>
+            <button onclick="switchView('exercises')" id="nav-exercises" class="nav-item flex-1 py-3 flex flex-col items-center gap-1 text-gymMuted transition-colors">
+                <i class="fas fa-list text-lg"></i>
+                <span class="text-[10px] uppercase font-bold tracking-wider">Library</span>
+            </button>
+            <button onclick="switchView('history')" id="nav-history" class="nav-item flex-1 py-3 flex flex-col items-center gap-1 text-gymMuted transition-colors">
+                <i class="fas fa-history text-lg"></i>
+                <span class="text-[10px] uppercase font-bold tracking-wider">History</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- Data Database (Male focused standard exercises) ---
+        const exerciseDB = {
+            'Chest': [
+                { id: 'c1', name: 'Barbell Bench Press', desc: 'Compound mid chest' },
+                { id: 'c2', name: 'Incline Dumbbell Press', desc: 'Upper chest focus' },
+                { id: 'c3', name: 'Cable Crossovers', desc: 'Inner chest squeeze' },
+                { id: 'c4', name: 'Dumbbell Flyes', desc: 'Chest isolation' },
+                { id: 'c5', name: 'Push-ups', desc: 'Bodyweight standard' }
+            ],
+            'Back': [
+                { id: 'b1', name: 'Deadlift', desc: 'Overall back & posterior chain' },
+                { id: 'b2', name: 'Pull-ups', desc: 'Lats width' },
+                { id: 'b3', name: 'Barbell Rows', desc: 'Mid back thickness' },
+                { id: 'b4', name: 'Lat Pulldowns', desc: 'Lats isolation' },
+                { id: 'b5', name: 'Seated Cable Row', desc: 'Mid/Lower back' }
+            ],
+            'Shoulders': [
+                { id: 's1', name: 'Overhead Press (OHP)', desc: 'Front & Mid delts' },
+                { id: 's2', name: 'Lateral Raises', desc: 'Mid delts width' },
+                { id: 's3', name: 'Face Pulls', desc: 'Rear delts & posture' },
+                { id: 's4', name: 'Dumbbell Shoulder Press', desc: 'Overall delts' },
+                { id: 's5', name: 'Shrugs', desc: 'Traps' }
+            ],
+            'Legs': [
+                { id: 'l1', name: 'Barbell Squats', desc: 'Quads & Glutes' },
+                { id: 'l2', name: 'Leg Press', desc: 'Heavy leg compound' },
+                { id: 'l3', name: 'Romanian Deadlift (RDL)', desc: 'Hamstrings & Glutes' },
+                { id: 'l4', name: 'Leg Extensions', desc: 'Quad isolation' },
+                { id: 'l5', name: 'Standing Calf Raises', desc: 'Calves' }
+            ],
+            'Arms': [
+                { id: 'a1', name: 'Barbell Bicep Curls', desc: 'Bicep mass' },
+                { id: 'a2', name: 'Tricep Pushdowns', desc: 'Tricep isolation' },
+                { id: 'a3', name: 'Hammer Curls', desc: 'Brachialis & forearms' },
+                { id: 'a4', name: 'Overhead Tricep Ext.', desc: 'Long head tricep' },
+                { id: 'a5', name: 'Skullcrushers', desc: 'Overall tricep' }
+            ]
+        };
+
+        // --- State Management ---
+        let currentExercise = null;
+        let currentSets = [];
+        
+        // Initialize localStorage if empty
+        if (!localStorage.getItem('gymBroWorkouts')) {
+            localStorage.setItem('gymBroWorkouts', JSON.stringify([]));
+        }
+
+        // --- STREAMING_CHUNK:UI Navigation and View Logic ---
+        function switchView(viewId) {
+            // Hide all views
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            // Show target view
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            
+            // Update Nav styles
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active', 'text-gymAccent');
+                el.classList.add('text-gymMuted');
+                el.style.borderBottom = 'none';
+            });
+
+            // Handle active state if it's a main nav item
+            const navBtn = document.getElementById(`nav-${viewId}`);
+            if (navBtn) {
+                navBtn.classList.add('active', 'text-gymAccent');
+                navBtn.classList.remove('text-gymMuted');
+                navBtn.style.borderBottom = '2px solid #00ff88';
+            }
+
+            // Specific view logic
+            if (viewId === 'dashboard') loadDashboard();
+            if (viewId === 'history') loadHistory();
+            if (viewId === 'exercises') {
+                document.getElementById('exerciseListContainer').classList.add('hidden');
+                document.querySelector('.grid').classList.remove('hidden');
+            }
+        }
+
+        // --- STREAMING_CHUNK:Exercise Library Logic ---
+        function loadCategory(category) {
+            const listContainer = document.getElementById('exerciseListContainer');
+            const grid = document.querySelector('.grid');
+            const list = document.getElementById('exerciseList');
+            const title = document.getElementById('selectedCategoryTitle');
+
+            title.innerText = category;
+            list.innerHTML = ''; // Clear old
+
+            exerciseDB[category].forEach(ex => {
+                const item = document.createElement('div');
+                item.className = 'bg-gymCard p-3 rounded-lg border border-gray-800 flex justify-between items-center active:bg-gray-800 cursor-pointer';
+                item.onclick = () => startWorkout(ex.name, category);
+                item.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white">${ex.name}</div>
+                        <div class="text-xs text-gymMuted">${ex.desc}</div>
+                    </div>
+                    <i class="fas fa-chevron-right text-gymAccent"></i>
+                `;
+                list.appendChild(item);
+            });
+
+            grid.classList.add('hidden');
+            listContainer.classList.remove('hidden');
+        }
+
+        function hideExerciseList() {
+            document.getElementById('exerciseListContainer').classList.add('hidden');
+            document.querySelector('.grid').classList.remove('hidden');
+        }
+
+        // --- STREAMING_CHUNK:Workout Logging Logic ---
+        function startWorkout(exerciseName, category) {
+            currentExercise = { name: exerciseName, category: category };
+            currentSets = [];
+            
+            document.getElementById('activeExerciseTitle').innerText = exerciseName;
+            
+            const dateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+            document.getElementById('workoutDate').innerText = new Date().toLocaleDateString('en-US', dateOpts);
+            
+            document.getElementById('setsContainer').innerHTML = '';
+            addSetRow(); // Add first empty set
+            
+            switchView('workout');
+        }
+
+        function addSetRow() {
+            const setNum = currentSets.length + 1;
+            const container = document.getElementById('setsContainer');
+            
+            const setDiv = document.createElement('div');
+            setDiv.className = 'grid grid-cols-12 gap-2 items-center bg-[#1a1a1a] p-2 rounded';
+            setDiv.id = `set-row-${setNum}`;
+            
+            // Try to pre-fill with previous set data if available
+            let prevWeight = '';
+            let prevReps = '';
+            if (currentSets.length > 0) {
+                prevWeight = currentSets[currentSets.length - 1].weight;
+                prevReps = currentSets[currentSets.length - 1].reps;
+            }
+
+            setDiv.innerHTML = `
+                <div class="col-span-2 text-center text-gymMuted font-bold">${setNum}</div>
+                <div class="col-span-4">
+                    <input type="number" id="weight-${setNum}" value="${prevWeight}" class="w-full bg-gymDark border border-gray-700 rounded p-2 text-white text-center focus:outline-none focus:border-gymAccent placeholder-gray-600" placeholder="0">
+                </div>
+                <div class="col-span-4">
+                    <input type="number" id="reps-${setNum}" value="${prevReps}" class="w-full bg-gymDark border border-gray-700 rounded p-2 text-white text-center focus:outline-none focus:border-gymAccent placeholder-gray-600" placeholder="0">
+                </div>
+                <div class="col-span-2 text-center">
+                    <button onclick="toggleSetComplete(${setNum})" id="check-${setNum}" class="w-8 h-8 rounded bg-gray-700 text-gray-400 flex items-center justify-center mx-auto transition-colors">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(setDiv);
+            currentSets.push({ weight: prevWeight, reps: prevReps, completed: false });
+        }
+
+        function toggleSetComplete(setNum) {
+            const index = setNum - 1;
+            const weightInput = document.getElementById(`weight-${setNum}`);
+            const repsInput = document.getElementById(`reps-${setNum}`);
+            const checkBtn = document.getElementById(`check-${setNum}`);
+            const row = document.getElementById(`set-row-${setNum}`);
+
+            // Ensure values are entered
+            if (!weightInput.value || !repsInput.value) {
+                // Simple visual shake if no custom alert allowed
+                row.style.transform = 'translateX(5px)';
+                setTimeout(() => row.style.transform = 'translateX(-5px)', 100);
+                setTimeout(() => row.style.transform = 'translateX(0)', 200);
+                return;
+            }
+
+            currentSets[index].completed = !currentSets[index].completed;
+            currentSets[index].weight = weightInput.value;
+            currentSets[index].reps = repsInput.value;
+
+            if (currentSets[index].completed) {
+                checkBtn.classList.remove('bg-gray-700', 'text-gray-400');
+                checkBtn.classList.add('bg-gymAccent', 'text-black');
+                row.classList.add('opacity-75');
+                weightInput.disabled = true;
+                repsInput.disabled = true;
+            } else {
+                checkBtn.classList.add('bg-gray-700', 'text-gray-400');
+                checkBtn.classList.remove('bg-gymAccent', 'text-black');
+                row.classList.remove('opacity-75');
+                weightInput.disabled = false;
+                repsInput.disabled = false;
+            }
+        }
+
+        // --- STREAMING_CHUNK:Saving Data to LocalStorage ---
+        function finishExercise() {
+            // Filter only completed sets
+            const completedSets = currentSets.filter(s => s.completed);
+            
+            if (completedSets.length === 0) {
+                // Custom message box simulation since alert() is forbidden
+                showToast("Please complete at least one set before saving.");
+                return;
+            }
+
+            const workoutEntry = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                exercise: currentExercise.name,
+                category: currentExercise.category,
+                sets: completedSets
+            };
+
+            // Save to localStorage
+            const workouts = JSON.parse(localStorage.getItem('gymBroWorkouts'));
+            workouts.push(workoutEntry);
+            localStorage.setItem('gymBroWorkouts', JSON.stringify(workouts));
+
+            showToast("Exercise Logged! 💪");
+            switchView('dashboard');
+        }
+
+        // --- STREAMING_CHUNK:History and Dashboard Rendering ---
+        function loadDashboard() {
+            const list = document.getElementById('recentActivityList');
+            const workouts = JSON.parse(localStorage.getItem('gymBroWorkouts')) || [];
+            
+            list.innerHTML = '';
+            
+            if (workouts.length === 0) {
+                list.innerHTML = `<div class="text-center text-gymMuted p-4">No workouts logged yet. Time to lift!</div>`;
+                return;
+            }
+
+            // Get last 3 workouts
+            const recent = workouts.slice().reverse().slice(0, 3);
+            
+            recent.forEach(w => {
+                const dateOpts = { month: 'short', day: 'numeric' };
+                const dateStr = new Date(w.date).toLocaleDateString('en-US', dateOpts);
+                
+                // Calculate volume (weight * reps)
+                let volume = 0;
+                w.sets.forEach(s => volume += (parseFloat(s.weight) * parseInt(s.reps)));
+
+                const el = document.createElement('div');
+                el.className = 'bg-gymCard p-3 rounded-lg border border-gray-800 flex justify-between items-center';
+                el.innerHTML = `
+                    <div>
+                        <div class="font-bold text-white">${w.exercise}</div>
+                        <div class="text-xs text-gymAccent">${w.sets.length} sets • Vol: ${volume}</div>
+                    </div>
+                    <div class="text-xs text-gymMuted">${dateStr}</div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function loadHistory() {
+            const list = document.getElementById('historyList');
+            const workouts = JSON.parse(localStorage.getItem('gymBroWorkouts')) || [];
+            
+            list.innerHTML = '';
+            
+            if (workouts.length === 0) {
+                list.innerHTML = `<div class="text-center text-gymMuted p-10">History is empty.</div>`;
+                return;
+            }
+
+            // Group by date
+            const grouped = {};
+            workouts.slice().reverse().forEach(w => {
+                const dateKey = new Date(w.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year:'numeric' });
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(w);
+            });
+
+            for (const [date, logs] of Object.entries(grouped)) {
+                const dayBlock = document.createElement('div');
+                dayBlock.className = 'mb-6';
+                
+                dayBlock.innerHTML = `<h3 class="text-sm text-gymAccent font-bold mb-2 uppercase tracking-wider">${date}</h3>`;
+                
+                logs.forEach(log => {
+                    const logCard = document.createElement('div');
+                    logCard.className = 'bg-gymCard p-3 rounded-lg border border-gray-800 mb-2';
+                    
+                    let setsHTML = log.sets.map((s, i) => 
+                        `<span class="inline-block bg-gray-800 text-xs px-2 py-1 rounded mr-1 mb-1 text-gray-300">Set ${i+1}: ${s.weight}x${s.reps}</span>`
+                    ).join('');
+
+                    logCard.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="font-bold text-white font-heading text-xl">${log.exercise}</div>
+                            <span class="text-[10px] bg-gray-700 px-1 rounded text-gymMuted uppercase">${log.category}</span>
+                        </div>
+                        <div class="flex flex-wrap">${setsHTML}</div>
+                    `;
+                    dayBlock.appendChild(logCard);
+                });
+                
+                list.appendChild(dayBlock);
+            }
+        }
+
+        // --- STREAMING_CHUNK:Utilities (Toast, Clear, Export) ---
+        function clearHistoryConfirm() {
+            if (confirmAction("Are you sure you want to delete all workout history?")) {
+                localStorage.setItem('gymBroWorkouts', JSON.stringify([]));
+                loadHistory();
+                showToast("History cleared.");
+            }
+        }
+
+        // Custom confirm alternative since confirm() is banned
+        function confirmAction(message) {
+            // In a strict no-alert/no-confirm environment, we use a basic prompt implementation
+            // Ideally this would be a custom modal, but for simplicity here we assume true if the user clicks a specific button
+            // To abide by rules strictly, I will create a temporary UI modal overlay.
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-80 z-[100] flex items-center justify-center p-4';
+            overlay.innerHTML = `
+                <div class="bg-gymCard p-6 rounded-xl border border-gray-700 w-full max-w-sm text-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-4"></i>
+                    <h3 class="text-white text-lg mb-2">Warning</h3>
+                    <p class="text-gymMuted text-sm mb-6">${message}</p>
+                    <div class="flex gap-3">
+                        <button id="cancelBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded">Cancel</button>
+                        <button id="confirmBtn" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded">Delete</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            document.getElementById('cancelBtn').onclick = () => document.body.removeChild(overlay);
+            document.getElementById('confirmBtn').onclick = () => {
+                localStorage.setItem('gymBroWorkouts', JSON.stringify([]));
+                loadHistory();
+                showToast("History cleared.");
+                document.body.removeChild(overlay);
+            };
+            return false; // Prevent default sync confirm behavior
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-gymAccent text-black font-bold px-4 py-2 rounded shadow-lg z-[100] transition-opacity duration-300';
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => document.body.removeChild(toast), 300);
+            }, 2500);
+        }
+
+        // Export data to JSON file
+        document.getElementById('downloadDataBtn').addEventListener('click', () => {
+            const data = localStorage.getItem('gymBroWorkouts');
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gymbro_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("Backup Downloaded!");
+        });
+
+        // --- STREAMING_CHUNK:Download and Install Logic ---
+        
+        // Function to let users download this very HTML file
+        function downloadAppHtml() {
+            // Get the entire HTML content of the current page
+            const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `GymBro_App_${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("App File Downloaded! Double click it to use offline.");
+        }
+
+        // Show install instructions overlay
+        function showInstallGuide() {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-90 z-[100] flex flex-col items-center justify-center p-6';
+            overlay.innerHTML = `
+                <div class="bg-gymCard p-6 rounded-xl border border-gray-700 w-full max-w-sm relative">
+                    <button onclick="this.parentElement.parentElement.remove()" class="absolute top-3 right-4 text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                    
+                    <h3 class="text-2xl font-heading text-gymAccent mb-4 border-b border-gray-800 pb-2">How to Install</h3>
+                    
+                    <div class="space-y-4 text-sm text-gray-300">
+                        <div class="flex gap-3 items-start">
+                            <i class="fab fa-android text-green-500 text-xl mt-1"></i>
+                            <div>
+                                <span class="font-bold text-white block mb-1">Android (Chrome)</span>
+                                1. Tap the 3-dot menu (top right).<br>
+                                2. Select <strong>"Add to Home screen"</strong>.<br>
+                                3. Open GymBro from your apps!
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 items-start border-t border-gray-800 pt-4">
+                            <i class="fab fa-apple text-gray-400 text-xl mt-1"></i>
+                            <div>
+                                <span class="font-bold text-white block mb-1">iPhone (Safari)</span>
+                                1. Tap the Share button (bottom center).<br>
+                                2. Scroll down and tap <strong>"Add to Home Screen"</strong>.<br>
+                                3. Open GymBro from your home screen!
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="this.parentElement.parentElement.remove()" class="mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded transition-colors">Got it!</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        // Init App
+        loadDashboard();
+
+    </script>
+</body>
+</html>

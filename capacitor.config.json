@@ -1,0 +1,8 @@
+{
+  "appId": "com.gymbro.tracker",
+  "appName": "GymBro",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
